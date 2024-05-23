@@ -1,0 +1,43 @@
+syntax = "proto3";
+
+package forum;
+
+option go_package = "github.com/Jassito03/message-broker/proto";
+
+service ForumService {
+  rpc PublishMessage(PublishRequest) returns (PublishResponse);
+  rpc SubscribeToTopic(SubscribeRequest) returns (stream Message);
+  rpc UnsubscribeFromTopic(UnsubscribeRequest) returns (UnsubscribeResponse);
+}
+
+message PublishRequest {
+  Topics topic = 1; 
+  string message = 2; 
+}
+
+message PublishResponse {
+  bool success = 1;
+}
+
+message SubscribeRequest {
+  Topics topic = 1; 
+}
+
+message UnsubscribeRequest {
+  Topics topic = 1; 
+}
+
+message UnsubscribeResponse {
+  bool success = 1; 
+}
+
+message Message {
+  Topics topic = 1; 
+  string content = 2; 
+}
+
+enum Topics {
+  Tecnologia = 0;
+  Entretenimiento = 1;
+  Cocina = 2;
+}

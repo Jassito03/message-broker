@@ -10,6 +10,10 @@ service ForumService {
   rpc UnsubscribeFromTopic(UnsubscribeRequest) returns (UnsubscribeResponse);
 }
 
+message Client {
+  string id = 1;
+}
+
 message PublishRequest {
   Topics topic = 1; 
   string message = 2; 
@@ -20,11 +24,13 @@ message PublishResponse {
 }
 
 message SubscribeRequest {
-  Topics topic = 1; 
+  Client client = 1;
+  Topics topic = 2; 
 }
 
 message UnsubscribeRequest {
-  Topics topic = 1; 
+  Client client = 1;
+  Topics topic = 2; 
 }
 
 message UnsubscribeResponse {

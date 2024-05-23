@@ -85,7 +85,7 @@ func (service *service) UnsubscribeFromTopic(ctx context.Context, req *proto.Uns
 
     clients, ok := service.topics[req.Topic]
     if !ok || len(clients) == 0 {
-        return &proto.UnsubscribeResponse{Success: false}, fmt.Errorf("Topic not found or no subscribers")
+        return &proto.UnsubscribeResponse{Success: false}, fmt.Errorf("topic not found or no subscribers")
     }
 
     if _, exists := clients[req.Client.Id]; exists {
@@ -93,7 +93,7 @@ func (service *service) UnsubscribeFromTopic(ctx context.Context, req *proto.Uns
         return &proto.UnsubscribeResponse{Success: true}, nil
     }
 
-    return &proto.UnsubscribeResponse{Success: false}, fmt.Errorf("Client not subscribed to the topic")
+    return &proto.UnsubscribeResponse{Success: false}, fmt.Errorf("client not subscribed to the topic")
 }
 
 

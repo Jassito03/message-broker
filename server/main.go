@@ -21,7 +21,7 @@ var (
 type service struct {
 	proto.UnimplementedForumServiceServer
 	topics map[proto.Topics]map[string]*clientStream
-	mutex sync.Mutex
+	mutex sync.RWMutex
 }
 
 type clientStream struct {
@@ -32,23 +32,30 @@ type clientStream struct {
 func (service *service) PublishMessage (ctx context.Context, req *proto.PublishRequest) (*proto.PublishResponse, error){
 	log.Printf("Publish message of Topic: %s", req.Topic.String());
 	
-	service.mutex.Lock()
-	defer service.mutex.Lock()
+	service.mutex.RLock()
+	defer service.mutex.RUnlock()
 	
 	clients, ok := service.topics[req.Topic]
 	if !ok {
 		return &proto.PublishResponse{Success: false}, fmt.Errorf("topic not found")
 	}
 
+	var wg sync.WaitGroup 
 	for _, client := range clients {
-		err := client.stream.Send(&proto.Message{
-			Topic: req.Topic,
-			Content: req.Message,
-		})
-		if err != nil {
-			log.Printf("Error sending message to client: %v", err)
-		}
+		wg.Add(1)
+		go func (cs *clientStream) {
+			defer wg.Done()
+			err := cs.stream.Send(&proto.Message{
+				Topic: req.Topic,
+				Content: req.Message,
+			})
+			if err != nil {
+				log.Printf("Error sending message to client: %v", err)
+			}
+		}(client)
 	}
+
+	wg.Wait() //Espera a que las rutinas terminen
 
 	return &proto.PublishResponse{Success: true}, nil
 }
@@ -56,44 +63,47 @@ func (service *service) PublishMessage (ctx context.Context, req *proto.PublishR
 func (service *service) SubscribeToTopic(req *proto.SubscribeRequest, stream proto.ForumService_SubscribeToTopicServer) error {
 	log.Printf("Subscribe to topic: %s by client: %s", req.Topic.String(), req.Client.Id)
 
+	cs := &clientStream{
+		clientID: req.Client.Id,
+		stream: stream,
+	}
+
 	service.mutex.Lock()
-    if service.topics[req.Topic] == nil {
-			service.topics[req.Topic] = make(map[string]*clientStream)
-    }
-    service.topics[req.Topic][req.Client.Id] = &clientStream{
-        clientID: req.Client.Id,
-        stream:   stream,
-    }
-    service.mutex.Unlock()
+  if service.topics[req.Topic] == nil {
+		service.topics[req.Topic] = make(map[string]*clientStream)
+  }
+  service.topics[req.Topic][req.Client.Id] = cs
+  service.mutex.Unlock()
 
-    // Mantener la conexión abierta
-    <-stream.Context().Done()
+  // Mantener la conexión abierta
+  <-stream.Context().Done()
 
-    // Cuando el cliente se desconecte, eliminarlo de las suscripciones
-    //s.mu.Lock()
-    //defer s.mu.Unlock()
-    //delete(s.topics[req.Topic], req.Client.Id)
+  // Cuando el cliente se desconecte, eliminarlo de las suscripciones
+  service.mutex.Lock()
+  delete(service.topics[req.Topic], req.Client.Id)
+	log.Printf("Subscribe to topic: %s by client: %s is eliminated because the client is desconnected", req.Topic.String(), req.Client.Id)
+	service.mutex.Unlock()
 
-    return nil
+  return nil
 }
 
 func (service *service) UnsubscribeFromTopic(ctx context.Context, req *proto.UnsubscribeRequest) (*proto.UnsubscribeResponse, error) {
 	log.Printf("Unsubscribe from topic: %s by client: %s", req.Topic.String(), req.Client.Id)
 
 	service.mutex.Lock()
-    defer service.mutex.Unlock()
+  defer service.mutex.Unlock()
 
-    clients, ok := service.topics[req.Topic]
-    if !ok || len(clients) == 0 {
-        return &proto.UnsubscribeResponse{Success: false}, fmt.Errorf("topic not found or no subscribers")
-    }
+  clients, ok := service.topics[req.Topic]
+  if !ok || len(clients) == 0 {
+    return &proto.UnsubscribeResponse{Success: false}, fmt.Errorf("topic not found or no subscribers")
+  }
 
-    if _, exists := clients[req.Client.Id]; exists {
-        delete(clients, req.Client.Id)
-        return &proto.UnsubscribeResponse{Success: true}, nil
-    }
+  if _, exists := clients[req.Client.Id]; exists {
+  	delete(clients, req.Client.Id)
+    return &proto.UnsubscribeResponse{Success: true}, nil
+  }
 
-    return &proto.UnsubscribeResponse{Success: false}, fmt.Errorf("client not subscribed to the topic")
+  return &proto.UnsubscribeResponse{Success: false}, fmt.Errorf("client not subscribed to the topic")
 }
 
 

@@ -88,8 +88,7 @@ func (service *service) SubscribeToTopic(req *proto.SubscribeRequest, stream pro
 
 	// Cuando el cliente se desconecte, eliminarlo de las suscripciones
 	service.mutex.Lock()
-	clients := service.topics[req.Topic]
-	delete(clients, req.Client.Id)
+	delete(service.topics[req.Topic], req.Client.Id)
 	log.Printf("Client %s unsubscribed from topic: %s due to disconnection", req.Client.Id, req.Topic.String())
 	service.mutex.Unlock()
 	

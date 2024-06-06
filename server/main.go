@@ -15,6 +15,7 @@ import (
 
 var (
 	port = flag.Int("port", 5501, "The server port")
+	ip   = flag.String("ip", "26.103.63.45", "The IP address to bind the server to")
 )
 
 type service struct {
@@ -116,9 +117,9 @@ func (service *service) UnsubscribeFromTopic(ctx context.Context, req *proto.Uns
 func main() {
 
 	flag.Parse()
-	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", *port))
+	listener, err := net.Listen("tcp", fmt.Sprintf("%s:%d", *ip, *port))
 	if err != nil {
-		log.Fatalf("Failed to listen: %v", err)
+		log.Fatalf("Failed to listen on %s:%d: %v", *ip, *port, err)
 	}
 
 	service := &service{

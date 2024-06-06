@@ -14,7 +14,7 @@ import (
 )
 
 var (
-	serverAddr = flag.String("server_addr", "localhost:5501", "The server address in the format of host:port")
+	serverAddr = flag.String("server_addr", "26.103.63.45:5501", "The server address in the format of host:port")
 )
 
 func subscribeToTopic(service proto.ForumServiceClient, name string, topic proto.Topics) {

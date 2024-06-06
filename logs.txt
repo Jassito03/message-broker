@@ -1,4 +1,0 @@
-2024/06/06 15:08:39 Server listening at [::]:5501
-2024/06/06 15:09:34 Subscribe to topic: Tecnologia by client: jass
-2024/06/06 15:09:58 Publish message hola como esta of Topic: Tecnologia
-2024/06/06 15:26:27 Client jass unsubscribed from topic: Tecnologia due to disconnection

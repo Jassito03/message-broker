@@ -4,11 +4,10 @@ import (
 	"context"
 	"flag"
 	"fmt"
-	"sync"
-
-	//"io"
 	"log"
 	"net"
+	"os"
+	"sync"
 
 	proto "github.com/Jassito03/message-broker/proto"
 	"google.golang.org/grpc"
@@ -21,20 +20,28 @@ var (
 type service struct {
 	proto.UnimplementedForumServiceServer
 	topics map[proto.Topics]map[string]*clientStream
-	mutex sync.RWMutex
+	mutex  sync.RWMutex
 }
 
 type clientStream struct {
 	clientID string
-	stream proto.ForumService_SubscribeToTopicServer
+	stream   proto.ForumService_SubscribeToTopicServer
 }
 
-func (service *service) PublishMessage (ctx context.Context, req *proto.PublishRequest) (*proto.PublishResponse, error){
-	log.Printf("Publish message of Topic: %s", req.Topic.String());
-	
+func setupLogger() {
+	logFile, err := os.OpenFile("Serverlogs.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
+	if err != nil {
+		log.Fatalf("Failed to open log file: %v", err)
+	}
+	log.SetOutput(logFile)
+}
+
+func (service *service) PublishMessage(ctx context.Context, req *proto.PublishRequest) (*proto.PublishResponse, error) {
+	log.Printf("Publish message '%s' of Topic: %s", req.GetMessage(), req.Topic.String())
+
 	service.mutex.RLock()
 	defer service.mutex.RUnlock()
-	
+
 	clients, ok := service.topics[req.Topic]
 	if !ok {
 		return &proto.PublishResponse{Success: false}, fmt.Errorf("topic not found")
@@ -43,10 +50,10 @@ func (service *service) PublishMessage (ctx context.Context, req *proto.PublishR
 	var wg sync.WaitGroup // Crea el grupo
 	for _, client := range clients {
 		wg.Add(1)
-		go func (cs *clientStream) {
+		go func(cs *clientStream) {
 			defer wg.Done()
 			err := cs.stream.Send(&proto.Message{
-				Topic: req.Topic,
+				Topic:   req.Topic,
 				Content: req.Message,
 			})
 			if err != nil {
@@ -65,53 +72,50 @@ func (service *service) SubscribeToTopic(req *proto.SubscribeRequest, stream pro
 
 	cs := &clientStream{
 		clientID: req.Client.Id,
-		stream: stream,
+		stream:   stream,
 	}
 
 	service.mutex.Lock()
-  if service.topics[req.Topic] == nil {
+	if service.topics[req.Topic] == nil {
 		service.topics[req.Topic] = make(map[string]*clientStream)
-  }
-  service.topics[req.Topic][req.Client.Id] = cs
-  service.mutex.Unlock()
-
-  // Mantener la conexión abierta
-  <-stream.Context().Done()
-
-  // Cuando el cliente se desconecte, eliminarlo de las suscripciones
-  service.mutex.Lock()
-  delete(service.topics[req.Topic], req.Client.Id)
-	log.Printf("Subscribe to topic: %s by client: %s is eliminated because the client is desconnected", req.Topic.String(), req.Client.Id)
+	}
+	service.topics[req.Topic][req.Client.Id] = cs
 	service.mutex.Unlock()
 
-  return nil
+	// Mantener la conexión abierta
+	<-stream.Context().Done()
+
+	// Cuando el cliente se desconecte, eliminarlo de las suscripciones
+	service.mutex.Lock()
+	delete(service.topics[req.Topic], req.Client.Id)
+	log.Printf("Client %s unsubscribed from topic: %s due to disconnection", req.Client.Id, req.Topic.String())
+	service.mutex.Unlock()
+
+	return nil
 }
 
 func (service *service) UnsubscribeFromTopic(ctx context.Context, req *proto.UnsubscribeRequest) (*proto.UnsubscribeResponse, error) {
 	log.Printf("Unsubscribe from topic: %s by client: %s", req.Topic.String(), req.Client.Id)
 
 	service.mutex.Lock()
-  defer service.mutex.Unlock()
+	defer service.mutex.Unlock()
 
-  clients, ok := service.topics[req.Topic]
-  if !ok || len(clients) == 0 {
-    return &proto.UnsubscribeResponse{Success: false}, fmt.Errorf("topic not found or no subscribers")
-  }
+	clients, ok := service.topics[req.Topic]
+	if !ok || len(clients) == 0 {
+		return &proto.UnsubscribeResponse{Success: false}, fmt.Errorf("topic not found or no subscribers")
+	}
 
-  if _, exists := clients[req.Client.Id]; exists {
-  	delete(clients, req.Client.Id)
-    return &proto.UnsubscribeResponse{Success: true}, nil
-  }
+	if _, exists := clients[req.Client.Id]; exists {
+		delete(clients, req.Client.Id)
+		return &proto.UnsubscribeResponse{Success: true}, nil
+	}
 
-  return &proto.UnsubscribeResponse{Success: false}, fmt.Errorf("client not subscribed to the topic")
+	return &proto.UnsubscribeResponse{Success: false}, fmt.Errorf("client not subscribed to the topic")
 }
-
-
 
 func main() {
 
 	flag.Parse()
-	
 	listener, err := net.Listen("tcp", fmt.Sprintf(":%d", *port))
 	if err != nil {
 		log.Fatalf("Failed to listen: %v", err)
@@ -121,9 +125,10 @@ func main() {
 		topics: make(map[proto.Topics]map[string]*clientStream),
 	}
 
+	setupLogger()
 	server := grpc.NewServer()
 	proto.RegisterForumServiceServer(server, service)
-	
+
 	log.Printf("Server listening at %v", listener.Addr())
 
 	if err := server.Serve(listener); err != nil {

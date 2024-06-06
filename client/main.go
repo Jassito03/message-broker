@@ -20,9 +20,9 @@ var (
 func subscribeToTopic(service proto.ForumServiceClient, name string, topic proto.Topics) {
 	// Suscribirse a un tema para recibir mensajes
 	subscribeClient, err := service.SubscribeToTopic(context.Background(), &proto.SubscribeRequest{
-		Topic: topic, 
+		Topic: topic,
 		Client: &proto.Client{
-			Id: name, 
+			Id: name,
 		},
 	})
 	if err != nil {
@@ -36,9 +36,9 @@ func subscribeToTopic(service proto.ForumServiceClient, name string, topic proto
 		//fmt.Println("¿Qué gustas compartir el día de hoy?")
 		//scanner.Scan();
 		//text = scanner.Text()
-		
+
 		//go sendMessage(service, text, topic)
-		
+
 		message, err := subscribeClient.Recv()
 		if err != nil {
 			log.Fatalf("Error receiving message: %v", err)
@@ -54,6 +54,14 @@ func subscribeToTopic(service proto.ForumServiceClient, name string, topic proto
 	}
 }
 
+func setupLogger() {
+	logFile, err := os.OpenFile("Clientlogs.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
+	if err != nil {
+		log.Fatalf("Failed to open log file: %v", err)
+	}
+	log.SetOutput(logFile)
+}
+
 func sendMessage(service proto.ForumServiceClient, message string, topic proto.Topics) {
 	_, err := service.PublishMessage(context.Background(), &proto.PublishRequest{
 		Topic:   topic,
@@ -67,7 +75,7 @@ func sendMessage(service proto.ForumServiceClient, message string, topic proto.T
 
 func main() {
 	flag.Parse()
-	var wg sync.WaitGroup 
+	var wg sync.WaitGroup
 
 	conn, err := grpc.Dial(*serverAddr, grpc.WithInsecure())
 	if err != nil {
@@ -80,7 +88,7 @@ func main() {
 
 	var name string
 	fmt.Println("¿Cúal es su nombre?")
-	scanner.Scan();
+	scanner.Scan()
 	name = scanner.Text()
 	fmt.Printf("¡Bienvenido, %s! \n", name)
 
@@ -91,35 +99,35 @@ func main() {
 		fmt.Println(" 1) Tecnología \n 2) Entretenimiento \n 3) Cocina")
 		fmt.Println("Digita el número del tema al que quieres suscribirte")
 		fmt.Scan(&topics[i])
-		scanner.Scan();
-		
+		scanner.Scan()
+
 		fmt.Println("¿Quieres suscribirte a otro tema? s/n")
 		fmt.Scan(&aux)
-		scanner.Scan();
+		scanner.Scan()
 
 		switch topics[i] {
 		case 1:
 			wg.Add(1)
-			go func () {
+			go func() {
 				defer wg.Done()
 				subscribeToTopic(service, name, proto.Topics_Tecnologia)
 			}()
 		case 2:
 			wg.Add(1)
-			go func () {
+			go func() {
 				defer wg.Done()
 				subscribeToTopic(service, name, proto.Topics_Entretenimiento)
 			}()
 		case 3:
 			wg.Add(1)
-			go func () {
+			go func() {
 				defer wg.Done()
 				subscribeToTopic(service, name, proto.Topics_Cocina)
 			}()
 		default:
 			fmt.Println("Error: Lo que ingresaste no es correcto")
-			i--;
-	}
+			i--
+		}
 		if aux == "n" {
 			break
 		}
@@ -127,25 +135,25 @@ func main() {
 
 	var message string
 	fmt.Println("¿Qué gustas compartir el día de hoy?")
-	scanner.Scan();
+	scanner.Scan()
 	message = scanner.Text()
-		
+
 	var topic int
 	fmt.Println("¿A qué tema te gustaría publicarlo?")
 	fmt.Println(" 1) Tecnología \n 2) Entretenimiento \n 3) Cocina")
 	fmt.Println("Digita el número del tema al que quieres enviarlo")
 	fmt.Scan(&topic)
-	scanner.Scan();
+	scanner.Scan()
 	switch topic {
-		case 1:
-			go sendMessage(service, message, proto.Topics_Tecnologia)
-		case 2:
-			go sendMessage(service, message, proto.Topics_Entretenimiento)
-		case 3:
-			go sendMessage(service, message, proto.Topics_Cocina)
-		default:
-			fmt.Println("Error: Lo que ingresaste no es correcto")
+	case 1:
+		go sendMessage(service, message, proto.Topics_Tecnologia)
+	case 2:
+		go sendMessage(service, message, proto.Topics_Entretenimiento)
+	case 3:
+		go sendMessage(service, message, proto.Topics_Cocina)
+	default:
+		fmt.Println("Error: Lo que ingresaste no es correcto")
 	}
-	
+
 	wg.Wait()
 }

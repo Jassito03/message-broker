@@ -8,6 +8,7 @@ import (
 	"net"
 	"os"
 	"sync"
+	"time"
 
 	proto "github.com/Jassito03/message-broker/proto"
 	"google.golang.org/grpc"
@@ -15,7 +16,8 @@ import (
 
 var (
 	port = flag.Int("port", 5501, "The server port")
-	ip   = flag.String("ip", "26.103.63.45", "The IP address to bind the server to")
+	//ip   = flag.String("ip", "26.103.63.45", "The IP address to bind the server to")
+	ip   = flag.String("ip", "localhost", "The IP address to bind the server to")
 )
 
 type service struct {
@@ -44,9 +46,10 @@ func (service *service) PublishMessage(ctx context.Context, req *proto.PublishRe
 	defer service.mutex.RUnlock()
 
 	clients, ok := service.topics[req.Topic]
-	if !ok {
-		return &proto.PublishResponse{Success: false}, fmt.Errorf("topic not found")
-	}
+    if !ok || len(clients) == 0 {
+				log.Print("Topic not found or no subscribers")
+        return &proto.PublishResponse{Success: false}, fmt.Errorf("topic not found or no subscribers")
+    }
 
 	var wg sync.WaitGroup // Crea el grupo
 	for _, client := range clients {
@@ -68,9 +71,26 @@ func (service *service) PublishMessage(ctx context.Context, req *proto.PublishRe
 	return &proto.PublishResponse{Success: true}, nil
 }
 
+func (service *service) isClientSubscribed(clientID string, topic proto.Topics) bool {
+	service.mutex.RLock()
+	defer service.mutex.RUnlock()
+
+	if clients, exists := service.topics[topic]; exists {
+		if _, subscribed := clients[clientID]; subscribed {
+				return true 
+		}
+	}
+	return false
+}
+
 func (service *service) SubscribeToTopic(req *proto.SubscribeRequest, stream proto.ForumService_SubscribeToTopicServer) error {
 	log.Printf("Subscribe to topic: %s by client: %s", req.Topic.String(), req.Client.Id)
 
+	if service.isClientSubscribed(req.Client.Id, req.Topic) {
+		log.Printf("The client %s is already subscribed to %s", req.Topic.String(), req.Client.Id)
+		return nil
+	}
+	
 	cs := &clientStream{
 		clientID: req.Client.Id,
 		stream:   stream,
@@ -114,8 +134,28 @@ func (service *service) UnsubscribeFromTopic(ctx context.Context, req *proto.Uns
 	return &proto.UnsubscribeResponse{Success: false}, fmt.Errorf("client not subscribed to the topic")
 }
 
-func main() {
+func (service *service) cleanEmptySubscriptions(topic proto.Topics) {
+	service.mutex.Lock()
+	defer service.mutex.Unlock()
 
+	if clients, exists := service.topics[topic]; exists {
+			if len(clients) == 0 {
+					delete(service.topics, topic)
+					log.Printf("Removed empty subscription for topic: %s", topic.String())
+			}
+	}
+}
+
+func periodicCleanup(service *service) {
+	for range time.Tick(1 * time.Minute) {
+			for topic := range service.topics {
+					service.cleanEmptySubscriptions(topic)
+			}
+	}
+}
+
+
+func main() {
 	flag.Parse()
 	listener, err := net.Listen("tcp", fmt.Sprintf("%s:%d", *ip, *port))
 	if err != nil {
@@ -135,4 +175,6 @@ func main() {
 	if err := server.Serve(listener); err != nil {
 		log.Fatalf("Failed to serve: %v", err)
 	}
+
+	periodicCleanup(service)
 }

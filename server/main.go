@@ -30,7 +30,7 @@ type clientStream struct {
 }
 
 func (service *service) PublishMessage (ctx context.Context, req *proto.PublishRequest) (*proto.PublishResponse, error){
-	log.Printf("Publish message of Topic: %s", req.Topic.String());
+	log.Printf("Publish message %s of Topic: %s", req.GetMessage(), req.Topic.String());
 	
 	service.mutex.RLock()
 	defer service.mutex.RUnlock()

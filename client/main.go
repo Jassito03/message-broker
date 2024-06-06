@@ -38,6 +38,18 @@ func subscribeToTopic(service proto.ForumServiceClient, name string, topic proto
 	}
 }
 
+func unSubscribeToTopic(service proto.ForumServiceClient, name string, topic proto.Topics) {
+	_, err := service.UnsubscribeFromTopic(context.Background(), &proto.UnsubscribeRequest{
+		Topic: topic,
+		Client: &proto.Client{
+			Id: name,
+		},
+	})
+	if err != nil {
+		log.Fatalf("Failed to subscribe to topic: %v", err)
+	}
+}
+
 func setupLogger() {
 	logFile, err := os.OpenFile("Clientlogs.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
 	if err != nil {
@@ -78,58 +90,49 @@ func main() {
 	scanner.Scan()
 	name = scanner.Text()
 	fmt.Printf("¡Bienvenido, %s! \n", name)
-
-	var topics [3]int
-	for i := 0; i < 3; i++ {
-		var aux string
-		fmt.Println("¿A qué temas te gustaría suscribirte?")
-		fmt.Println(" 1) Tecnología \n 2) Entretenimiento \n 3) Cocina")
-		fmt.Println("Digita el número del tema al que quieres suscribirte")
-		fmt.Scan(&topics[i])
+	for {
+		fmt.Println("Selecciona una opción: \n 1) Suscribirse a un tema \n 2) Publicar un mensaje \n 3) Desuscribirse de un tema \n 4) Salir")
+		var choice int
+		fmt.Scan(&choice)
 		scanner.Scan()
-
-		fmt.Println("¿Quieres suscribirte a otro tema? s/n")
-		fmt.Scan(&aux)
-		scanner.Scan()
-
-		switch topics[i] {
+		switch choice {
 		case 1:
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				subscribeToTopic(service, name, proto.Topics_Tecnologia)
-			}()
-		case 2:
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				subscribeToTopic(service, name, proto.Topics_Entretenimiento)
-			}()
-		case 3:
-			wg.Add(1)
-			go func() {
-				defer wg.Done()
-				subscribeToTopic(service, name, proto.Topics_Cocina)
-			}()
-		default:
-			fmt.Println("Error: Lo que ingresaste no es correcto")
-			i--
-		}
-		if aux == "n" {
-			break
-		}
-	}
+			var topics int
+			fmt.Println("¿A qué temas te gustaría suscribirte?")
+			fmt.Println(" 1) Tecnología \n 2) Entretenimiento \n 3) Cocina")
+			fmt.Println("Digita el número del tema al que quieres suscribirte")
+			fmt.Scan(&topics)
+			scanner.Scan()
 
-	go func() {
-		var topic int
-		var message string
-		for {
-			fmt.Println("¿Qué gustas compartir hoy? (Escribe 'exit' para salir)")
+			switch topics {
+			case 1:
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					subscribeToTopic(service, name, proto.Topics_Tecnologia)
+				}()
+			case 2:
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					subscribeToTopic(service, name, proto.Topics_Entretenimiento)
+				}()
+			case 3:
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					subscribeToTopic(service, name, proto.Topics_Cocina)
+				}()
+			default:
+				fmt.Println("Error: Lo que ingresaste no es correcto")
+			}
+		case 2:
+			var topic int
+			var message string
+			fmt.Println("¿Qué gustas compartir hoy?")
 			scanner.Scan()
 			message = scanner.Text()
-			if message == "exit" {
-				break
-			}
+
 			fmt.Println("¿A qué tema te gustaría publicarlo?")
 			fmt.Println(" 1) Tecnología \n 2) Entretenimiento \n 3) Cocina")
 			fmt.Println("Digita el número del tema al que quieres enviarlo")
@@ -147,10 +150,41 @@ func main() {
 			default:
 				fmt.Println("Error: Lo que ingresaste no es correcto")
 			}
-		}
-		wg.Wait()
-		os.Exit(0)
-	}()
+		case 3:
+			var topics int
+			fmt.Println("¿A qué temas te gustaría desuscribirte?")
+			fmt.Println(" 1) Tecnología \n 2) Entretenimiento \n 3) Cocina")
+			fmt.Println("Digita el número del tema al que quieres desuscribirte")
+			fmt.Scan(&topics)
+			scanner.Scan()
 
-	wg.Wait()
+			switch topics {
+			case 1:
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					unSubscribeToTopic(service, name, proto.Topics_Tecnologia)
+				}()
+			case 2:
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					unSubscribeToTopic(service, name, proto.Topics_Entretenimiento)
+				}()
+			case 3:
+				wg.Add(1)
+				go func() {
+					defer wg.Done()
+					unSubscribeToTopic(service, name, proto.Topics_Cocina)
+				}()
+			default:
+				fmt.Println("Error: Lo que ingresaste no es correcto")
+			}
+		case 4:
+			fmt.Println("Saliendo...")
+			os.Exit(1)
+		default:
+			fmt.Println("Opción no válida, por favor intenta de nuevo.")
+		}
+	}
 }

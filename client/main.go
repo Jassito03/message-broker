@@ -29,28 +29,13 @@ func subscribeToTopic(service proto.ForumServiceClient, name string, topic proto
 		log.Fatalf("Failed to subscribe to topic: %v", err)
 	}
 
-	/*scanner := bufio.NewScanner(os.Stdin)
-	var text string
-	var aux string*/
 	for {
-		//fmt.Println("¿Qué gustas compartir el día de hoy?")
-		//scanner.Scan();
-		//text = scanner.Text()
-
-		//go sendMessage(service, text, topic)
 
 		message, err := subscribeClient.Recv()
 		if err != nil {
 			log.Fatalf("Error receiving message: %v", err)
 		}
 		log.Printf("Received message: %s", message.Content)
-
-		/*fmt.Println("¿Quieres salir de este tema? s/n")
-		fmt.Scan(&aux)
-		scanner.Scan();
-		if aux == "s" {
-			break
-		}*/
 	}
 }
 
@@ -75,6 +60,7 @@ func sendMessage(service proto.ForumServiceClient, message string, topic proto.T
 
 func main() {
 	flag.Parse()
+	setupLogger()
 	var wg sync.WaitGroup
 
 	conn, err := grpc.Dial(*serverAddr, grpc.WithInsecure())
@@ -133,7 +119,7 @@ func main() {
 		}
 	}
 
-	var message string
+	/*var message string
 	fmt.Println("¿Qué gustas compartir el día de hoy?")
 	scanner.Scan()
 	message = scanner.Text()
@@ -153,7 +139,38 @@ func main() {
 		go sendMessage(service, message, proto.Topics_Cocina)
 	default:
 		fmt.Println("Error: Lo que ingresaste no es correcto")
-	}
+	}*/
+
+	go func() {
+		var topic int
+		for {
+			fmt.Println("¿Qué gustas compartir hoy? (Escribe 'exit' para salir)")
+			scanner.Scan()
+			message := scanner.Text()
+			if message == "exit" {
+				break
+			}
+			fmt.Println("¿A qué tema te gustaría publicarlo?")
+			fmt.Println(" 1) Tecnología \n 2) Entretenimiento \n 3) Cocina")
+			fmt.Println("Digita el número del tema al que quieres enviarlo")
+
+			fmt.Scan(&topic)
+			scanner.Scan() // Limpiar el buffer
+
+			switch topic {
+			case 1:
+				go sendMessage(service, message, proto.Topics_Tecnologia)
+			case 2:
+				go sendMessage(service, message, proto.Topics_Entretenimiento)
+			case 3:
+				go sendMessage(service, message, proto.Topics_Cocina)
+			default:
+				fmt.Println("Error: Lo que ingresaste no es correcto")
+			}
+		}
+		wg.Wait()
+		os.Exit(0)
+	}()
 
 	wg.Wait()
 }

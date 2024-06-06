@@ -1,10 +1,13 @@
 package main
 
 import (
+	"bufio"
 	"context"
 	"flag"
 	"fmt"
 	"log"
+	"os"
+	"sync"
 
 	proto "github.com/Jassito03/message-broker/proto"
 	"google.golang.org/grpc"
@@ -26,28 +29,45 @@ func subscribeToTopic(service proto.ForumServiceClient, name string, topic proto
 		log.Fatalf("Failed to subscribe to topic: %v", err)
 	}
 
+	/*scanner := bufio.NewScanner(os.Stdin)
+	var text string
+	var aux string*/
 	for {
+		//fmt.Println("¿Qué gustas compartir el día de hoy?")
+		//scanner.Scan();
+		//text = scanner.Text()
+		
+		//go sendMessage(service, text, topic)
+		
 		message, err := subscribeClient.Recv()
 		if err != nil {
 			log.Fatalf("Error receiving message: %v", err)
 		}
 		log.Printf("Received message: %s", message.Content)
+
+		/*fmt.Println("¿Quieres salir de este tema? s/n")
+		fmt.Scan(&aux)
+		scanner.Scan();
+		if aux == "s" {
+			break
+		}*/
 	}
 }
 
 func sendMessage(service proto.ForumServiceClient, message string, topic proto.Topics) {
-	publishResponse, err := service.PublishMessage(context.Background(), &proto.PublishRequest{
+	_, err := service.PublishMessage(context.Background(), &proto.PublishRequest{
 		Topic:   topic,
 		Message: message,
 	})
 	if err != nil {
 		log.Fatalf("Failed to publish message: %v", err)
 	}
-	log.Printf("Publish Response: %v", publishResponse)
+	//log.Printf("Publish Response: %v", publishResponse)
 }
 
 func main() {
 	flag.Parse()
+	var wg sync.WaitGroup 
 
 	conn, err := grpc.Dial(*serverAddr, grpc.WithInsecure())
 	if err != nil {
@@ -56,11 +76,13 @@ func main() {
 	defer conn.Close()
 
 	service := proto.NewForumServiceClient(conn)
+	scanner := bufio.NewScanner(os.Stdin)
 
 	var name string
 	fmt.Println("¿Cúal es su nombre?")
-	fmt.Scan(&name);
-	fmt.Printf("¡Bienvenido, %s!", name)
+	scanner.Scan();
+	name = scanner.Text()
+	fmt.Printf("¡Bienvenido, %s! \n", name)
 
 	var topics [3]int
 	for i := 0; i < 3; i++ {
@@ -69,25 +91,35 @@ func main() {
 		fmt.Println(" 1) Tecnología \n 2) Entretenimiento \n 3) Cocina")
 		fmt.Println("Digita el número del tema al que quieres suscribirte")
 		fmt.Scan(&topics[i])
-		switch topics[i] {
-			case 1:
-				go func() {
-					subscribeToTopic(service, name, proto.Topics_Tecnologia)
-				}()
-			case 2:
-				go func() {
-					subscribeToTopic(service, name, proto.Topics_Entretenimiento)
-				}()
-			case 3:
-				go func() {
-					subscribeToTopic(service, name, proto.Topics_Cocina)
-				}()
-			default:
-				fmt.Println("Error: Lo que ingresaste no es correcto")
-				i--;
-		}
+		scanner.Scan();
+		
 		fmt.Println("¿Quieres suscribirte a otro tema? s/n")
 		fmt.Scan(&aux)
+		scanner.Scan();
+
+		switch topics[i] {
+		case 1:
+			wg.Add(1)
+			go func () {
+				defer wg.Done()
+				subscribeToTopic(service, name, proto.Topics_Tecnologia)
+			}()
+		case 2:
+			wg.Add(1)
+			go func () {
+				defer wg.Done()
+				subscribeToTopic(service, name, proto.Topics_Entretenimiento)
+			}()
+		case 3:
+			wg.Add(1)
+			go func () {
+				defer wg.Done()
+				subscribeToTopic(service, name, proto.Topics_Cocina)
+			}()
+		default:
+			fmt.Println("Error: Lo que ingresaste no es correcto")
+			i--;
+	}
 		if aux == "n" {
 			break
 		}
@@ -95,28 +127,25 @@ func main() {
 
 	var message string
 	fmt.Println("¿Qué gustas compartir el día de hoy?")
-	fmt.Scan(&message);
+	scanner.Scan();
+	message = scanner.Text()
 		
 	var topic int
 	fmt.Println("¿A qué tema te gustaría publicarlo?")
 	fmt.Println(" 1) Tecnología \n 2) Entretenimiento \n 3) Cocina")
 	fmt.Println("Digita el número del tema al que quieres enviarlo")
 	fmt.Scan(&topic)
+	scanner.Scan();
 	switch topic {
 		case 1:
-			go func() {
-				sendMessage(service, message, proto.Topics_Tecnologia)
-			}()
+			go sendMessage(service, message, proto.Topics_Tecnologia)
 		case 2:
-			go func() {
-				sendMessage(service, message, proto.Topics_Entretenimiento)
-			}()
+			go sendMessage(service, message, proto.Topics_Entretenimiento)
 		case 3:
-			go func() {
-				sendMessage(service, message, proto.Topics_Cocina)
-			}()
+			go sendMessage(service, message, proto.Topics_Cocina)
 		default:
 			fmt.Println("Error: Lo que ingresaste no es correcto")
 	}
 	
+	wg.Wait()
 }

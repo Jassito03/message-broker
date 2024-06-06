@@ -40,7 +40,7 @@ func (service *service) PublishMessage (ctx context.Context, req *proto.PublishR
 		return &proto.PublishResponse{Success: false}, fmt.Errorf("topic not found")
 	}
 
-	var wg sync.WaitGroup 
+	var wg sync.WaitGroup // Crea el grupo
 	for _, client := range clients {
 		wg.Add(1)
 		go func (cs *clientStream) {

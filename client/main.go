@@ -18,7 +18,6 @@ var (
 )
 
 func subscribeToTopic(service proto.ForumServiceClient, name string, topic proto.Topics) {
-	// Suscribirse a un tema para recibir mensajes
 	subscribeClient, err := service.SubscribeToTopic(context.Background(), &proto.SubscribeRequest{
 		Topic: topic,
 		Client: &proto.Client{
@@ -30,7 +29,6 @@ func subscribeToTopic(service proto.ForumServiceClient, name string, topic proto
 	}
 
 	for {
-
 		message, err := subscribeClient.Recv()
 		if err != nil {
 			log.Fatalf("Error receiving message: %v", err)
@@ -48,14 +46,14 @@ func setupLogger() {
 }
 
 func sendMessage(service proto.ForumServiceClient, message string, topic proto.Topics) {
-	_, err := service.PublishMessage(context.Background(), &proto.PublishRequest{
+	publishResponse, err := service.PublishMessage(context.Background(), &proto.PublishRequest{
 		Topic:   topic,
 		Message: message,
 	})
 	if err != nil {
 		log.Fatalf("Failed to publish message: %v", err)
 	}
-	//log.Printf("Publish Response: %v", publishResponse)
+	log.Printf("Publish Response: %v", publishResponse)
 }
 
 func main() {
@@ -68,6 +66,8 @@ func main() {
 		log.Fatalf("Failed to connect to server: %v", err)
 	}
 	defer conn.Close()
+
+	log.Printf("Client connect to: %v", *serverAddr)
 
 	service := proto.NewForumServiceClient(conn)
 	scanner := bufio.NewScanner(os.Stdin)
@@ -119,34 +119,13 @@ func main() {
 		}
 	}
 
-	/*var message string
-	fmt.Println("¿Qué gustas compartir el día de hoy?")
-	scanner.Scan()
-	message = scanner.Text()
-
-	var topic int
-	fmt.Println("¿A qué tema te gustaría publicarlo?")
-	fmt.Println(" 1) Tecnología \n 2) Entretenimiento \n 3) Cocina")
-	fmt.Println("Digita el número del tema al que quieres enviarlo")
-	fmt.Scan(&topic)
-	scanner.Scan()
-	switch topic {
-	case 1:
-		go sendMessage(service, message, proto.Topics_Tecnologia)
-	case 2:
-		go sendMessage(service, message, proto.Topics_Entretenimiento)
-	case 3:
-		go sendMessage(service, message, proto.Topics_Cocina)
-	default:
-		fmt.Println("Error: Lo que ingresaste no es correcto")
-	}*/
-
 	go func() {
 		var topic int
+		var message string
 		for {
 			fmt.Println("¿Qué gustas compartir hoy? (Escribe 'exit' para salir)")
 			scanner.Scan()
-			message := scanner.Text()
+			message = scanner.Text()
 			if message == "exit" {
 				break
 			}
@@ -155,7 +134,7 @@ func main() {
 			fmt.Println("Digita el número del tema al que quieres enviarlo")
 
 			fmt.Scan(&topic)
-			scanner.Scan() // Limpiar el buffer
+			scanner.Scan()
 
 			switch topic {
 			case 1:

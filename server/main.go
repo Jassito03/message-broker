@@ -28,7 +28,6 @@ type clientStream struct {
 	stream   proto.ForumService_SubscribeToTopicServer
 }
 
-
 func setupLogger() {
 	logFile, err := os.OpenFile("Serverlogs.txt", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0666)
 	if err != nil {
@@ -38,12 +37,7 @@ func setupLogger() {
 }
 
 func (service *service) PublishMessage(ctx context.Context, req *proto.PublishRequest) (*proto.PublishResponse, error) {
-	log.Printf("Publish message '%s' of Topic: %s", req.GetMessage(), req.Topic.String())
-
-
-func (service *service) PublishMessage (ctx context.Context, req *proto.PublishRequest) (*proto.PublishResponse, error){
-	log.Printf("Publish message %s of Topic: %s", req.GetMessage(), req.Topic.String());
-	
+	log.Printf("Publish message %s of Topic: %s", req.GetMessage(), req.Topic.String())
 
 	service.mutex.RLock()
 	defer service.mutex.RUnlock()

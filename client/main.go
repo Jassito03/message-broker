@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"log"
 	"os"
-	"sync"
 
 	proto "github.com/Jassito03/message-broker/proto"
 	"google.golang.org/grpc"
@@ -75,7 +74,6 @@ func sendMessage(service proto.ForumServiceClient, message string, topic proto.T
 func main() {
 	flag.Parse()
 	setupLogger()
-	var wg sync.WaitGroup
 
 	conn, err := grpc.Dial(*serverAddr, grpc.WithInsecure())
 	if err != nil {
@@ -109,23 +107,11 @@ func main() {
 
 			switch topics {
 			case 1:
-				wg.Add(1)
-				go func() {
-					defer wg.Done()
-					subscribeToTopic(service, name, proto.Topics_Tecnologia)
-				}()
+				go subscribeToTopic(service, name, proto.Topics_Tecnologia)
 			case 2:
-				wg.Add(1)
-				go func() {
-					defer wg.Done()
-					subscribeToTopic(service, name, proto.Topics_Entretenimiento)
-				}()
+				go subscribeToTopic(service, name, proto.Topics_Entretenimiento)
 			case 3:
-				wg.Add(1)
-				go func() {
-					defer wg.Done()
-					subscribeToTopic(service, name, proto.Topics_Cocina)
-				}()
+				go subscribeToTopic(service, name, proto.Topics_Cocina)
 			default:
 				fmt.Println("Error: Lo que ingresaste no es correcto")
 			}
@@ -164,19 +150,15 @@ func main() {
 			switch topics {
 			case 1:
 				go unSubscribeToTopic(service, name, proto.Topics_Tecnologia)
-				wg.Done()
 			case 2:
 				go unSubscribeToTopic(service, name, proto.Topics_Entretenimiento)
-				wg.Done()
 			case 3:
 				go unSubscribeToTopic(service, name, proto.Topics_Cocina)
-				wg.Done()
 			default:
 				fmt.Println("Error: Lo que ingresaste no es correcto")
 			}
 		case 4:
 			fmt.Println("Saliendo...")
-			os.Exit(1)
 		default:
 			fmt.Println("Opción no válida, por favor intenta de nuevo.")
 		}

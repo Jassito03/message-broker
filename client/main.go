@@ -14,8 +14,8 @@ import (
 )
 
 var (
-	//serverAddr = flag.String("server_addr", "26.103.63.45:5501", "The server address in the format of host:port")
-	serverAddr = flag.String("server_addr", "localhost:5501", "The server address in the format of host:port")
+	serverAddr = flag.String("server_addr", "26.103.63.45:5501", "The server address in the format of host:port")
+	//serverAddr = flag.String("server_addr", "localhost:5501", "The server address in the format of host:port")
 )
 
 func subscribeToTopic(service proto.ForumServiceClient, name string, topic proto.Topics) {
@@ -26,13 +26,15 @@ func subscribeToTopic(service proto.ForumServiceClient, name string, topic proto
 		},
 	})
 	if err != nil {
-		log.Fatalf("Failed to subscribe to topic: %v", err)
+		log.Printf("Failed to subscribe to topic: %v", err)
+		return
 	}
 
 	for {
 		message, err := subscribeClient.Recv()
 		if err != nil {
-			log.Fatalf("Error receiving message: %v", err)
+			log.Printf("Error receiving message: %v", err)
+			return
 		}
 		log.Printf("Received message: %s", message.Content)
 	}
@@ -46,7 +48,7 @@ func unSubscribeToTopic(service proto.ForumServiceClient, name string, topic pro
 		},
 	})
 	if err != nil {
-		log.Fatalf("Failed to subscribe to topic: %v", err)
+		log.Printf("Failed to subscribe to topic: %v", err)
 	}
 }
 
@@ -64,7 +66,8 @@ func sendMessage(service proto.ForumServiceClient, message string, topic proto.T
 		Message: message,
 	})
 	if err != nil {
-		log.Fatalf("Failed to publish message: %v", err)
+		log.Printf("Failed to publish message: %v", err)
+		return
 	}
 	log.Printf("Publish Response: %v", publishResponse)
 }
@@ -160,23 +163,14 @@ func main() {
 
 			switch topics {
 			case 1:
-				wg.Add(1)
-				go func() {
-					defer wg.Done()
-					unSubscribeToTopic(service, name, proto.Topics_Tecnologia)
-				}()
+				go unSubscribeToTopic(service, name, proto.Topics_Tecnologia)
+				wg.Done()
 			case 2:
-				wg.Add(1)
-				go func() {
-					defer wg.Done()
-					unSubscribeToTopic(service, name, proto.Topics_Entretenimiento)
-				}()
+				go unSubscribeToTopic(service, name, proto.Topics_Entretenimiento)
+				wg.Done()
 			case 3:
-				wg.Add(1)
-				go func() {
-					defer wg.Done()
-					unSubscribeToTopic(service, name, proto.Topics_Cocina)
-				}()
+				go unSubscribeToTopic(service, name, proto.Topics_Cocina)
+				wg.Done()
 			default:
 				fmt.Println("Error: Lo que ingresaste no es correcto")
 			}

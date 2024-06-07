@@ -16,8 +16,8 @@ import (
 
 var (
 	port = flag.Int("port", 5501, "The server port")
-	//ip   = flag.String("ip", "26.103.63.45", "The IP address to bind the server to")
-	ip   = flag.String("ip", "localhost", "The IP address to bind the server to")
+	ip   = flag.String("ip", "26.103.63.45", "The IP address to bind the server to")
+	//ip   = flag.String("ip", "localhost", "The IP address to bind the server to")
 )
 
 type service struct {
@@ -40,16 +40,15 @@ func setupLogger() {
 }
 
 func (service *service) PublishMessage(ctx context.Context, req *proto.PublishRequest) (*proto.PublishResponse, error) {
-	log.Printf("Publish message %s of Topic: %s", req.GetMessage(), req.Topic.String())
 
 	service.mutex.RLock()
 	defer service.mutex.RUnlock()
 
 	clients, ok := service.topics[req.Topic]
-    if !ok || len(clients) == 0 {
-				log.Print("Topic not found or no subscribers")
-        return &proto.PublishResponse{Success: false}, fmt.Errorf("topic not found or no subscribers")
-    }
+	if !ok || len(clients) == 0 {
+		log.Print("Topic not found or no subscribers")
+		return &proto.PublishResponse{Success: false}, fmt.Errorf("topic not found or no subscribers")
+	}
 
 	var wg sync.WaitGroup // Crea el grupo
 	for _, client := range clients {
@@ -67,7 +66,7 @@ func (service *service) PublishMessage(ctx context.Context, req *proto.PublishRe
 	}
 
 	wg.Wait() //Espera a que las rutinas terminen
-
+	log.Printf("Publish message %s of Topic: %s", req.GetMessage(), req.Topic.String())
 	return &proto.PublishResponse{Success: true}, nil
 }
 
@@ -77,7 +76,7 @@ func (service *service) isClientSubscribed(clientID string, topic proto.Topics) 
 
 	if clients, exists := service.topics[topic]; exists {
 		if _, subscribed := clients[clientID]; subscribed {
-				return true 
+			return true
 		}
 	}
 	return false
@@ -88,9 +87,9 @@ func (service *service) SubscribeToTopic(req *proto.SubscribeRequest, stream pro
 
 	if service.isClientSubscribed(req.Client.Id, req.Topic) {
 		log.Printf("The client %s is already subscribed to %s", req.Topic.String(), req.Client.Id)
-		return nil
+		return fmt.Errorf("the client already subscribed")
 	}
-	
+
 	cs := &clientStream{
 		clientID: req.Client.Id,
 		stream:   stream,
@@ -111,26 +110,27 @@ func (service *service) SubscribeToTopic(req *proto.SubscribeRequest, stream pro
 	delete(service.topics[req.Topic], req.Client.Id)
 	log.Printf("Client %s unsubscribed from topic: %s due to disconnection", req.Client.Id, req.Topic.String())
 	service.mutex.Unlock()
-	
+
 	return nil
 }
 
 func (service *service) UnsubscribeFromTopic(ctx context.Context, req *proto.UnsubscribeRequest) (*proto.UnsubscribeResponse, error) {
-	log.Printf("Unsubscribe from topic: %s by client: %s", req.Topic.String(), req.Client.Id)
 
 	service.mutex.Lock()
 	defer service.mutex.Unlock()
 
 	clients, ok := service.topics[req.Topic]
 	if !ok || len(clients) == 0 {
+		log.Printf("Topic %s not found or no subscribers", req.Topic.String())
 		return &proto.UnsubscribeResponse{Success: false}, fmt.Errorf("topic not found or no subscribers")
 	}
 
 	if _, exists := clients[req.Client.Id]; exists {
+		log.Printf("Unsubscribe from topic: %s by client: %s", req.Topic.String(), req.Client.Id)
 		delete(clients, req.Client.Id)
 		return &proto.UnsubscribeResponse{Success: true}, nil
 	}
-
+	log.Printf("Client %s not subscribed to the topic %s", req.Client.Id, req.Topic.String())
 	return &proto.UnsubscribeResponse{Success: false}, fmt.Errorf("client not subscribed to the topic")
 }
 
@@ -139,21 +139,20 @@ func (service *service) cleanEmptySubscriptions(topic proto.Topics) {
 	defer service.mutex.Unlock()
 
 	if clients, exists := service.topics[topic]; exists {
-			if len(clients) == 0 {
-					delete(service.topics, topic)
-					log.Printf("Removed empty subscription for topic: %s", topic.String())
-			}
+		if len(clients) == 0 {
+			delete(service.topics, topic)
+			log.Printf("Removed empty subscription for topic: %s", topic.String())
+		}
 	}
 }
 
 func periodicCleanup(service *service) {
-	for range time.Tick(1 * time.Minute) {
-			for topic := range service.topics {
-					service.cleanEmptySubscriptions(topic)
-			}
+	for range time.Tick(30 * time.Second) {
+		for topic := range service.topics {
+			service.cleanEmptySubscriptions(topic)
+		}
 	}
 }
-
 
 func main() {
 	flag.Parse()

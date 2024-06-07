@@ -7,6 +7,8 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"os/exec"
+	"runtime"
 
 	proto "github.com/Jassito03/message-broker/proto"
 	"google.golang.org/grpc"
@@ -71,6 +73,19 @@ func sendMessage(service proto.ForumServiceClient, message string, topic proto.T
 	log.Printf("Publish Response: %v", publishResponse)
 }
 
+func clearScreen() {
+	switch runtime.GOOS {
+	case "linux", "darwin":
+		cmd := exec.Command("clear") // Comando para Linux y MacOS
+		cmd.Stdout = os.Stdout
+		cmd.Run()
+	case "windows":
+		cmd := exec.Command("cmd", "/c", "cls") // Comando para Windows
+		cmd.Stdout = os.Stdout
+		cmd.Run()
+	}
+}
+
 func main() {
 	flag.Parse()
 	setupLogger()
@@ -98,13 +113,13 @@ func main() {
 		scanner.Scan()
 		switch choice {
 		case 1:
+			clearScreen()
 			var topics int
 			fmt.Println("¿A qué temas te gustaría suscribirte?")
 			fmt.Println(" 1) Tecnología \n 2) Entretenimiento \n 3) Cocina")
 			fmt.Println("Digita el número del tema al que quieres suscribirte")
 			fmt.Scan(&topics)
 			scanner.Scan()
-
 			switch topics {
 			case 1:
 				go subscribeToTopic(service, name, proto.Topics_Tecnologia)
@@ -116,6 +131,7 @@ func main() {
 				fmt.Println("Error: Lo que ingresaste no es correcto")
 			}
 		case 2:
+			clearScreen()
 			var topic int
 			var message string
 			fmt.Println("¿Qué gustas compartir hoy?")
@@ -140,6 +156,7 @@ func main() {
 				fmt.Println("Error: Lo que ingresaste no es correcto")
 			}
 		case 3:
+			clearScreen()
 			var topics int
 			fmt.Println("¿A qué temas te gustaría desuscribirte?")
 			fmt.Println(" 1) Tecnología \n 2) Entretenimiento \n 3) Cocina")
@@ -158,9 +175,13 @@ func main() {
 				fmt.Println("Error: Lo que ingresaste no es correcto")
 			}
 		case 4:
+			clearScreen()
 			fmt.Println("Saliendo...")
+			os.Exit(0)
 		default:
+			clearScreen()
 			fmt.Println("Opción no válida, por favor intenta de nuevo.")
 		}
+		clearScreen()
 	}
 }

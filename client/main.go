@@ -37,7 +37,7 @@ func subscribeToTopic(service proto.ForumServiceClient, name string, topic proto
 			log.Printf("Error receiving message: %v", err)
 			return
 		}
-		log.Printf("Received message: %s", message.Content)
+		log.Printf("Received message: %s of topic %s", message.Content,message.Topic.String())
 	}
 }
 
